@@ -1,1 +1,8 @@
 config.py
+scraped_data/
+scraped_data/*
+
+# Also ignore common Python/Jupyter files
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
