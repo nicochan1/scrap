@@ -3,6 +3,16 @@ from bs4 import BeautifulSoup
 import json
 import time
 import os
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+import config
+import csv
+from urllib.parse import urlparse
 
 def download_profile_posts(username):
     try:
@@ -45,13 +55,72 @@ def download_profile_posts(username):
     except Exception as e:
         print(f"Error downloading from {username}: {str(e)}")
 
-# List of Instagram accounts
-accounts = [
-    'barbielee1004'
-]
+def get_next_account_to_scrape():
+    csv_file = os.path.join('scraped_data', 'instagram_accounts.csv')
+    accounts_to_scrape = []
+    
+    with open(csv_file, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if int(row['last_scrapped']) == 0:  # Only get accounts not yet scrapped
+                accounts_to_scrape.append(row['account'])
+    
+    if accounts_to_scrape:
+        return accounts_to_scrape[0]  # Return the first unscraped account
+    return None
 
-# Process each account
-for account in accounts:
-    print(f"Downloading images from {account}")
-    download_profile_posts(account)
-    time.sleep(5)  # Add delay between accounts 
+def mark_account_as_scraped(account, num_images, num_videos):
+    csv_file = os.path.join('scraped_data', 'instagram_accounts.csv')
+    rows = []
+    
+    # Read existing data
+    with open(csv_file, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['account'] == account:
+                row['last_scrapped'] = int(time.time())  # Current timestamp
+                row['num_images'] = num_images
+                row['num_videos'] = num_videos
+            rows.append(row)
+    
+    # Write updated data
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['account', 'last_scrapped', 'num_images', 'num_videos'])
+        writer.writeheader()
+        writer.writerows(rows)
+
+def login(driver, username, password):
+    driver.get("https://www.instagram.com")
+    
+    username_field = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='username']")))
+    password_field = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='password']")))
+    
+    username_field.clear()
+    username_field.send_keys(username)
+    password_field.clear()
+    password_field.send_keys(password)
+    
+    button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']")))
+    button.click()
+
+def scrape_account(account):
+    driver = webdriver.Chrome()
+    try:
+        # Login
+        login(driver, config.username, config.password)
+        time.sleep(3)  # Wait for login
+        
+        # Rest of your scraping code here...
+        # (Copy the relevant parts from your notebook)
+        
+    finally:
+        driver.quit()
+
+if __name__ == '__main__':
+    # This code only runs if the script is run directly
+    account = get_next_account_to_scrape()
+    if account:
+        print(f"Scraping account: {account}")
+        scrape_account(account)
+    else:
+        print("No accounts left to scrape!") 
